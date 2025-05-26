@@ -1,0 +1,18 @@
+[package]
+name = "Odessy"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+character = { path =  "./character" }
+military = { path =  "./military" }
+monster = { path = "./monster"}
+vitality = { path =  "./vitality" }
+
+[workspace]
+members = [
+    "character",
+    "military", 
+    "monster",
+    "vitality",
+]
