@@ -41,9 +41,19 @@ impl WarriorInfo {
         let rank = WarriorRank::UnRanked;
 
 
-        WarriorInfo{main_class, sub_class, main_fighting_style, sub_fighting_style, main_weapon, rank}
+        Self{main_class, sub_class, main_fighting_style, sub_fighting_style, main_weapon, rank}
     }
-    
+    pub fn level_up(&mut self) {
+        match self.rank {
+            WarriorRank::UnRanked => WarriorRank::Novice,
+            WarriorRank::Novice => WarriorRank::Amateur,
+            WarriorRank::Amateur => WarriorRank::Intermediate,
+            WarriorRank::Intermediate => WarriorRank::Bronze,
+            WarriorRank::Bronze => WarriorRank::Sliver,
+            WarriorRank::Gold => WarriorRank::Gold,
+            _ => WarriorRank::UnRanked,
+        };
+    }
     pub fn edit(&mut self) {
 
     } 

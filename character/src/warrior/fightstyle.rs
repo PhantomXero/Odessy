@@ -19,6 +19,6 @@ impl FightingStyleInfo {
         let style = None;
         let weapons = WeaponInfo::new_weapons();
 
-        FightingStyleInfo{style, weapons}
+        Self{style, weapons}
     }
 }

@@ -6,4 +6,6 @@ pub fn _read() -> String {
     stdin().read_line(&mut user_res)
     .expect(ERR_MSG);
     user_res
+    .trim()
+    .to_string()
 }

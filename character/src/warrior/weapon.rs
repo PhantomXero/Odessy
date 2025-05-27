@@ -22,7 +22,7 @@ impl WeaponInfo {
         let damage = 0.0;
         let durability = 0.0;
 
-        WeaponInfo{class, damage, durability}
+        Self{class, damage, durability}
     }
 
     pub fn new_weapons() -> Vec<Weapon> {
