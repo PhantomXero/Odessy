@@ -1,4 +1,4 @@
-use super::utilis::_read_int;
+use crate::utilis::_read_int;
 
 #[derive(Debug)]
 enum VitalityLevel {

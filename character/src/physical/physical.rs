@@ -1,4 +1,4 @@
-use super::utilis::{_read_int, _read_float};
+use crate::utilis::{_read_int, _read_float};
 
 enum List {
     Build,

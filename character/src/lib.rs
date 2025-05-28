@@ -2,42 +2,16 @@ use crate::warrior::warrior::WarriorInfo;
 
 use nation::CivicInfo;
 use person::PersonalInfo;
-use physic::PhysicalInfo;
+use crate::physical::physical::PhysicalInfo;
 use utilis::{_read_float, _read_int, _read_string};
-use vitality::Vitalityinfo;
+use crate::vitality::vitality::Vitalityinfo;
 
 mod nation;
 mod person;
-mod physic;
+mod physical;
 mod warrior;
 mod utilis;
 mod vitality;
-
-#[derive(Debug)]
-enum VitalityElement {
-    Fire,
-    Water,
-    Ice,
-    Earth,
-    Plants,
-    Air,
-    Lighting,
-    Noul,
-    Null,
-}
-
-#[derive(Debug)]
-enum Nation {
-    Arigo,
-}
-
-#[derive(Debug)]
-enum SocialClass {
-    Royal,
-    Noble,
-    Military,
-    Civilian,
-}
 
 #[derive(Debug)]
 pub struct Character {

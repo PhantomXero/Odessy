@@ -45,13 +45,13 @@ impl WarriorInfo {
     }
     pub fn level_up(&mut self) {
         match self.rank {
-            WarriorRank::UnRanked => WarriorRank::Novice,
-            WarriorRank::Novice => WarriorRank::Amateur,
-            WarriorRank::Amateur => WarriorRank::Intermediate,
-            WarriorRank::Intermediate => WarriorRank::Bronze,
-            WarriorRank::Bronze => WarriorRank::Sliver,
-            WarriorRank::Gold => WarriorRank::Gold,
-            _ => WarriorRank::UnRanked,
+            WarriorRank::UnRanked => self.rank = WarriorRank::Novice,
+            WarriorRank::Novice => self.rank = WarriorRank::Amateur,
+            WarriorRank::Amateur => self.rank = WarriorRank::Intermediate,
+            WarriorRank::Intermediate => self.rank = WarriorRank::Bronze,
+            WarriorRank::Bronze => self.rank = WarriorRank::Sliver,
+            WarriorRank::Gold => self.rank = WarriorRank::Gold,
+            _ => self.rank = WarriorRank::UnRanked,
         };
     }
     pub fn edit(&mut self) {
