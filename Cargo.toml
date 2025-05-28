@@ -5,8 +5,10 @@ edition = "2024"
 
 [dependencies]
 character = { path =  "./character" }
+crossterm = "0.29.0"
 military = { path =  "./military" }
 monster = { path = "./monster"}
+ratatui = "0.29.0"
 vitality = { path =  "./vitality" }
 
 [workspace]
