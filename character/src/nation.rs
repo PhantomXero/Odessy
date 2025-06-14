@@ -1,4 +1,4 @@
-use super::utilis::_read_int;
+use el_roi::read_int;
 
 enum List {
     Nation,
@@ -29,16 +29,19 @@ impl CivicInfo {
         let nationality = Nation::Arigo;
         let social_class = SocialClass::Civilian;
 
-        Self{nationality, social_class}
+        Self {
+            nationality,
+            social_class,
+        }
     }
     pub fn edit(&mut self) {
         Self::lists(List::Nation);
-        self.nationality = match  _read_int() {
+        self.nationality = match read_int("Enter the number of your Nationality: ") {
             1 => Nation::Arigo,
             _ => Nation::Arigo,
         };
         Self::lists(List::SocialClass);
-        self.social_class = match  _read_int() {
+        self.social_class = match read_int("Enter the number of your Social Class: ") {
             1 => SocialClass::Civilian,
             2 => SocialClass::Military,
             3 => SocialClass::Noble,
@@ -59,16 +62,14 @@ impl CivicInfo {
             List::Nation => {
                 println!("Nation");
                 println!("1. {:?}", Nation::Arigo);
-                println!("Enter the number of your Nationality: ");
-            },
+            }
             List::SocialClass => {
                 println!("Social Class");
                 println!("1. {:?}", SocialClass::Civilian);
                 println!("2. {:?}", SocialClass::Military);
                 println!("3. {:?}", SocialClass::Noble);
                 println!("4. {:?}", SocialClass::Royal);
-                println!("Enter the number of your Social Class: ");
-            },
+            }
         }
     }
 }

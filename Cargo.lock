@@ -8,6 +8,7 @@ version = "0.1.0"
 dependencies = [
  "character",
  "crossterm 0.29.0",
+ "el_roi",
  "military",
  "monster",
  "ratatui",
@@ -56,6 +57,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 [[package]]
 name = "character"
 version = "0.1.0"
+dependencies = [
+ "el_roi",
+]
 
 [[package]]
 name = "compact_str"
@@ -195,6 +199,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
+name = "el_roi"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d86f42e0ced884e86104b05fed1f74881d1a2011154d4bcf6a4d0fb8f786cd28"
+
+[[package]]
 name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -331,6 +341,9 @@ dependencies = [
 [[package]]
 name = "military"
 version = "0.1.0"
+dependencies = [
+ "el_roi",
+]
 
 [[package]]
 name = "mio"
@@ -347,6 +360,9 @@ dependencies = [
 [[package]]
 name = "monster"
 version = "0.1.0"
+dependencies = [
+ "el_roi",
+]
 
 [[package]]
 name = "parking_lot"
@@ -588,6 +604,9 @@ checksum = "1fc81956842c57dac11422a97c3b8195a1ff727f06e85c84ed2e8aa277c9a0fd"
 [[package]]
 name = "vitality"
 version = "0.1.0"
+dependencies = [
+ "el_roi",
+]
 
 [[package]]
 name = "wasi"

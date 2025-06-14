@@ -1,4 +1,4 @@
-use crate::utilis::{_read_int, _read_string};
+use el_roi::{read_int, read_string};
 
 #[derive(Debug)]
 enum Gender {
@@ -16,14 +16,16 @@ pub struct PersonalInfo {
 
 impl PersonalInfo {
     pub fn new() -> Self {
-        println!("Enter your First Name: ");
-        let first_name = _read_string();
-        println!("Enter your Last Name: ");
-        let last_name = _read_string();
-        println!("Enter your Age: ");
-        let age = _read_int();
+        let first_name = read_string("Enter your First Name: ");
+        let last_name = read_string("Enter your Last Name: ");
+        let age = read_int("Enter your Age: ");
         let gender = Gender::Male;
 
-        Self { first_name, last_name, age, gender }
+        Self {
+            first_name,
+            last_name,
+            age,
+            gender,
+        }
     }
 }

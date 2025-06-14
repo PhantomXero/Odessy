@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 character = { path =  "./character" }
 crossterm = "0.29.0"
+el_roi = "0.1.0"
 military = { path =  "./military" }
 monster = { path = "./monster"}
 ratatui = "0.29.0"

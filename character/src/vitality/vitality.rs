@@ -1,4 +1,4 @@
-use crate::utilis::_read_int;
+use el_roi::read_int;
 
 #[derive(Debug)]
 enum VitalityLevel {
@@ -26,13 +26,13 @@ enum VitalityElement {
 #[derive(Debug)]
 pub struct Vitalityinfo {
     element: VitalityElement,
-    level: VitalityLevel
+    level: VitalityLevel,
 }
 
 impl Vitalityinfo {
     pub fn new() -> Self {
         Self::list();
-        let element = match _read_int() {
+        let element = match read_int("Enter the number of your Vitality Element: ") {
             1 => VitalityElement::Air,
             2 => VitalityElement::Earth,
             3 => VitalityElement::Fire,
@@ -45,7 +45,7 @@ impl Vitalityinfo {
         };
         let level = VitalityLevel::Dormant;
 
-        Self{element, level}
+        Self { element, level }
     }
     pub fn level_up(&mut self) {
         match self.level {
@@ -54,7 +54,7 @@ impl Vitalityinfo {
             VitalityLevel::Attuded => self.level = VitalityLevel::Channeling,
             VitalityLevel::Channeling => self.level = VitalityLevel::Empowered,
             VitalityLevel::Empowered => self.level = VitalityLevel::Mastered,
-            _ => self.level = VitalityLevel::Ghost
+            _ => self.level = VitalityLevel::Ghost,
         }
     }
     pub fn list() {
@@ -67,6 +67,5 @@ impl Vitalityinfo {
         println!("6. {:?}", VitalityElement::Void);
         println!("7. {:?}", VitalityElement::Plants);
         println!("8. {:?}", VitalityElement::Water);
-        println!("Enter the number of your Vitality Element: ");
     }
 }
