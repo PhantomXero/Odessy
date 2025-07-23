@@ -1,7 +1,4 @@
 use character::Character;
-
-mod utilis;
-
 fn main() {
     let mut new_character = Character::new();
     Character::ShowCharacterProfile(&mut new_character);

@@ -8,6 +8,7 @@ character = { path =  "./character" }
 crossterm = "0.29.0"
 el_roi = "0.1.0"
 military = { path =  "./military" }
+mode ={ path = "./mode"}
 monster = { path = "./monster"}
 ratatui = "0.29.0"
 vitality = { path =  "./vitality" }
@@ -16,6 +17,7 @@ vitality = { path =  "./vitality" }
 members = [
     "character",
     "military", 
+    "mode", 
     "monster",
     "vitality",
 ]

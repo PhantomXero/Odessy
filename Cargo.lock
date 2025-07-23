@@ -10,6 +10,7 @@ dependencies = [
  "crossterm 0.29.0",
  "el_roi",
  "military",
+ "mode",
  "monster",
  "ratatui",
  "vitality",
@@ -356,6 +357,10 @@ dependencies = [
  "wasi",
  "windows-sys",
 ]
+
+[[package]]
+name = "mode"
+version = "0.1.0"
 
 [[package]]
 name = "monster"
