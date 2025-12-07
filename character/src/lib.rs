@@ -48,21 +48,22 @@ impl Character {
 
     pub fn from_prompt() -> Self {
         let personal = PersonalInfo::from_prompt();
-        let vitality = VitalityInfo::from_prompt();
-
-        let mut physical = PhysicalInfo::new();
-        if let Err(err) = physical.edit() {
-            println!("Physical setup error: {}", err);
-        }
 
         let mut civic = CivicInfo::new();
         civic.edit();
+
+        let mut physical = PhysicalInfo::default();
+        while let Err(err) = physical.edit() {
+            println!("Physical setup error: {err}. Please try again.");
+        }
+
+        let vitality = VitalityInfo::from_prompt();
 
         let wants_warrior = matches!(
             read_int("Is this character a combatant? (1 Yes / 2 No): "),
             1
         );
-        let warrior = wants_warrior.then(WarriorInfo::new);
+        let warrior = wants_warrior.then(|| WarriorInfo::from_prompt(&physical));
 
         Self {
             personal,
@@ -105,6 +106,45 @@ impl Character {
         self.warrior.as_ref()
     }
 
+    pub fn edit_history(&mut self) {
+        self.civic.edit();
+    }
+
+    pub fn edit_physical(&mut self) {
+        while let Err(err) = self.physical.edit() {
+            println!("Physical setup error: {err}. Please try again.");
+        }
+        if let Some(warrior) = &mut self.warrior {
+            warrior.sync_with_physical(&self.physical);
+        }
+    }
+
+    pub fn edit_vitality(&mut self) {
+        self.vitality = VitalityInfo::from_prompt();
+    }
+
+    pub fn edit_warrior(&mut self) {
+        if self.is_civilian() {
+            println!("This character is currently a civilian.");
+            if matches!(read_int("Assign combat role now? (1 Yes / 2 No): "), 1) {
+                self.warrior = Some(WarriorInfo::from_prompt(&self.physical));
+            }
+        } else if let Some(info) = &mut self.warrior {
+            info.edit(&self.physical);
+        }
+    }
+
+    pub fn unlock_warrior_respec(&mut self) {
+        if let Some(info) = &mut self.warrior {
+            info.grant_respec_token();
+            println!(
+                "Combat specialization reset unlocked. Visit the warrior editor to reassign classes or fighting style."
+            );
+        } else {
+            println!("No warrior specialization assigned yet.");
+        }
+    }
+
     pub fn profile_card(&self) -> String {
         let mut sections = vec![];
         sections.push(section("Identity", &self.personal.to_string()));
@@ -131,6 +171,9 @@ impl Character {
 
     pub fn set_warrior(&mut self, warrior: Option<WarriorInfo>) {
         self.warrior = warrior;
+        if let Some(info) = &mut self.warrior {
+            info.sync_with_physical(&self.physical);
+        }
     }
 
     pub fn is_civilian(&self) -> bool {
