@@ -31,56 +31,6 @@ pub enum ProfileAction {
     Save,
 }
 
-#[derive(Clone, Copy)]
-struct ActionEntry {
-    label: &'static str,
-    hotkey: char,
-    action: ProfileAction,
-}
-
-const PROFILE_ACTIONS: [ActionEntry; 8] = [
-    ActionEntry {
-        label: "Level Up",
-        hotkey: 'l',
-        action: ProfileAction::LevelUp,
-    },
-    ActionEntry {
-        label: "Edit Identity",
-        hotkey: 'i',
-        action: ProfileAction::EditIdentity,
-    },
-    ActionEntry {
-        label: "Edit History",
-        hotkey: 'h',
-        action: ProfileAction::EditHistory,
-    },
-    ActionEntry {
-        label: "Edit Physical",
-        hotkey: 'p',
-        action: ProfileAction::EditPhysical,
-    },
-    ActionEntry {
-        label: "Edit Vitality",
-        hotkey: 'v',
-        action: ProfileAction::EditVitality,
-    },
-    ActionEntry {
-        label: "Edit Warrior",
-        hotkey: 'w',
-        action: ProfileAction::EditWarrior,
-    },
-    ActionEntry {
-        label: "Save",
-        hotkey: 's',
-        action: ProfileAction::Save,
-    },
-    ActionEntry {
-        label: "Quit",
-        hotkey: 'q',
-        action: ProfileAction::Quit,
-    },
-];
-
 pub fn character_selector(rows: &[CharacterSummary]) -> io::Result<MenuSelection> {
     if rows.is_empty() {
         return Ok(MenuSelection::CreateNew);
@@ -105,6 +55,7 @@ fn selector_loop(
 ) -> io::Result<MenuSelection> {
     let mut index: usize = 0;
     let options_len = rows.len() + 1;
+    let last_index = options_len.saturating_sub(1);
     loop {
         terminal.draw(|f| {
             let size = f.area();
@@ -145,26 +96,26 @@ fn selector_loop(
                     KeyCode::Char(ch) => match ch.to_ascii_lowercase() {
                         'q' => return Ok(MenuSelection::CreateNew),
                         'w' | 'k' => {
-                            if index == 0 {
-                                index = options_len - 1;
-                            } else {
+                            if index > 0 {
                                 index -= 1;
                             }
                         }
                         's' | 'j' => {
-                            index = (index + 1) % options_len;
+                            if index < last_index {
+                                index += 1;
+                            }
                         }
                         _ => {}
                     },
                     KeyCode::Up => {
-                        if index == 0 {
-                            index = options_len - 1;
-                        } else {
+                        if index > 0 {
                             index -= 1;
                         }
                     }
                     KeyCode::Down => {
-                        index = (index + 1) % options_len;
+                        if index < last_index {
+                            index += 1;
+                        }
                     }
                     KeyCode::Enter => {
                         if index == rows.len() {
@@ -186,21 +137,12 @@ fn profile_loop(
 ) -> io::Result<ProfileAction> {
     let mut scroll_offset: u16 = 0;
     const SCROLL_STEP: u16 = 3;
-    let mut action_index: usize = 0;
-    let actions_height: u16 = PROFILE_ACTIONS.len() as u16 + 2;
     loop {
         terminal.draw(|f| {
             let size = f.area();
             let layout = Layout::default()
                 .direction(Direction::Vertical)
-                .constraints(
-                    [
-                        Constraint::Min(5),
-                        Constraint::Length(actions_height),
-                        Constraint::Length(2),
-                    ]
-                    .as_ref(),
-                )
+                .constraints([Constraint::Min(5), Constraint::Length(3)].as_ref())
                 .split(size);
 
             let block = Block::default()
@@ -213,41 +155,13 @@ fn profile_loop(
                 .block(block);
             f.render_widget(body, layout[0]);
 
-            let items: Vec<ListItem> = PROFILE_ACTIONS
-                .iter()
-                .map(|entry| {
-                    let mut label = String::from("[");
-                    label.push(entry.hotkey.to_ascii_uppercase());
-                    label.push_str("] ");
-                    label.push_str(entry.label);
-                    ListItem::new(label)
-                })
-                .collect();
-            let actions = List::new(items)
-                .block(
-                    Block::default()
-                        .title("Actions")
-                        .borders(Borders::ALL)
-                        .border_style(Style::default().fg(Color::Yellow)),
-                )
-                .highlight_style(
-                    Style::default()
-                        .fg(Color::Green)
-                        .add_modifier(Modifier::BOLD),
-                )
-                .highlight_symbol("▶ ");
-            let mut state = ListState::default();
-            state.select(Some(action_index));
-            f.render_stateful_widget(actions, layout[1], &mut state);
-
             let instructions = Paragraph::new(Line::from(vec![
-                Span::raw("PgUp/PgDn scroll overview  "),
-                Span::raw("↑/↓ or J/K move  "),
-                Span::raw("Enter confirm  "),
-                Span::raw("Hotkeys still apply (letters in brackets)."),
+                Span::raw("↑/↓ scroll  "),
+                Span::raw("PgUp/PgDn fast scroll  "),
+                Span::raw("Hotkeys: [L] Level  [I] Identity  [H] History  [P] Physical  [V] Vitality  [W] Warrior  [S] Save  [Q] Quit"),
             ]))
             .alignment(Alignment::Center);
-            f.render_widget(instructions, layout[2]);
+            f.render_widget(instructions, layout[1]);
         })?;
 
         if let Event::Key(key) = event::read()? {
@@ -259,45 +173,29 @@ fn profile_loop(
                 scroll_offset = scroll_offset.saturating_add(SCROLL_STEP);
                 continue;
             }
-            match key.code {
-                KeyCode::Up => {
-                    if action_index == 0 {
-                        action_index = PROFILE_ACTIONS.len() - 1;
-                    } else {
-                        action_index -= 1;
-                    }
-                    continue;
-                }
-                KeyCode::Down => {
-                    action_index = (action_index + 1) % PROFILE_ACTIONS.len();
-                    continue;
-                }
-                KeyCode::Enter => {
-                    return Ok(PROFILE_ACTIONS[action_index].action);
-                }
-                KeyCode::Char(ch) => {
-                    let lower = ch.to_ascii_lowercase();
-                    if lower == 'j' {
-                        action_index = (action_index + 1) % PROFILE_ACTIONS.len();
-                        continue;
-                    }
-                    if lower == 'k' {
-                        if action_index == 0 {
-                            action_index = PROFILE_ACTIONS.len() - 1;
-                        } else {
-                            action_index -= 1;
-                        }
-                        continue;
-                    }
-                    if let Some(entry) =
-                        PROFILE_ACTIONS.iter().find(|entry| entry.hotkey == lower)
-                    {
-                        return Ok(entry.action);
-                    }
-                    continue;
-                }
-                _ => continue,
+            if key.code == KeyCode::Up {
+                scroll_offset = scroll_offset.saturating_sub(1);
+                continue;
             }
+            if key.code == KeyCode::Down {
+                scroll_offset = scroll_offset.saturating_add(1);
+                continue;
+            }
+            let action = match key.code {
+                KeyCode::Char(ch) => match ch.to_ascii_lowercase() {
+                    'q' => ProfileAction::Quit,
+                    'l' => ProfileAction::LevelUp,
+                    'i' => ProfileAction::EditIdentity,
+                    'h' => ProfileAction::EditHistory,
+                    'p' => ProfileAction::EditPhysical,
+                    'v' => ProfileAction::EditVitality,
+                    'w' => ProfileAction::EditWarrior,
+                    's' => ProfileAction::Save,
+                    _ => continue,
+                },
+                _ => continue,
+            };
+            return Ok(action);
         }
     }
 }
