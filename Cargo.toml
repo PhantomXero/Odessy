@@ -11,6 +11,8 @@ military = { path =  "./military" }
 mode ={ path = "./mode"}
 monster = { path = "./monster"}
 ratatui = "0.29.0"
+serde = "1.0.228"
+serde_json = "1.0.145"
 vitality = { path =  "./vitality" }
 
 [workspace]
