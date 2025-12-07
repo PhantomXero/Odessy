@@ -2,13 +2,15 @@ use el_roi::read_int;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
+const HISTORY_GUIDE: &str = "History defines where your loyalties, taxes, and faction bonuses come from. Nations rarely change, but social class can grow with prestige.";
+
 enum List {
     Nation,
     SocialClass,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-enum Nation {
+pub enum Nation {
     Arigo,
 }
 
@@ -22,7 +24,7 @@ impl fmt::Display for Nation {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-enum SocialClass {
+pub enum SocialClass {
     Royal,
     Noble,
     Military,
@@ -58,6 +60,8 @@ impl CivicInfo {
         }
     }
     pub fn edit(&mut self) {
+        println!("--- History ---");
+        println!("{}", HISTORY_GUIDE);
         Self::lists(List::Nation);
         self.nationality = match read_int("Enter the number of your Nationality: ") {
             1 => Nation::Arigo,
@@ -87,7 +91,7 @@ impl CivicInfo {
     pub fn social_class(&self) -> &SocialClass {
         &self.social_class
     }
-    pub fn lists(list: List) {
+    fn lists(list: List) {
         match list {
             List::Nation => {
                 println!("Nation");

@@ -5,7 +5,7 @@ use std::fmt;
 const VITALITY_GUIDE: &str = "Vitality defines your supernatural alignment. You can only attune to one element, and levels progress linearly through mastery.";
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-enum VitalityLevel {
+pub enum VitalityLevel {
     Dormant,
     Awakened,
     Attuned,

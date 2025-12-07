@@ -47,15 +47,24 @@ pub struct PersonalInfo {
     last_name: String,
     age: i32,
     gender: Gender,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    nickname: Option<String>,
 }
 
 impl PersonalInfo {
-    pub fn new(first_name: String, last_name: String, age: i32, gender: Gender) -> Self {
+    pub fn new(
+        first_name: String,
+        last_name: String,
+        age: i32,
+        gender: Gender,
+        nickname: Option<String>,
+    ) -> Self {
         Self {
             first_name,
             last_name,
             age,
             gender,
+            nickname,
         }
     }
 
@@ -64,7 +73,9 @@ impl PersonalInfo {
         let last_name = read_string("Enter your Last Name: ");
         let age = read_int("Enter your Age: ");
         let gender = Gender::prompt_selection();
-        Self::new(first_name, last_name, age, gender)
+        let nickname_input = read_string("Enter a Nickname/Call Sign (leave blank to skip): ");
+        let nickname = normalize_optional(nickname_input);
+        Self::new(first_name, last_name, age, gender, nickname)
     }
 
     pub fn first_name(&self) -> &str {
@@ -81,6 +92,10 @@ impl PersonalInfo {
 
     pub fn gender(&self) -> Gender {
         self.gender
+    }
+
+    pub fn nickname(&self) -> Option<&str> {
+        self.nickname.as_deref()
     }
 
     pub fn full_name(&self) -> String {
@@ -108,6 +123,11 @@ impl PersonalInfo {
         if prompt_yes_no("Update gender? (1 Yes / 2 No)") {
             self.gender = Gender::prompt_selection();
         }
+
+        if prompt_yes_no("Update nickname/call sign? (1 Yes / 2 No)") {
+            let nickname_input = read_string("Enter new Nickname/Call Sign (leave blank to clear): ");
+            self.nickname = normalize_optional(nickname_input);
+        }
     }
 }
 
@@ -118,6 +138,7 @@ impl Default for PersonalInfo {
             last_name: String::new(),
             age: 0,
             gender: Gender::default(),
+            nickname: None,
         }
     }
 }
@@ -125,6 +146,9 @@ impl Default for PersonalInfo {
 impl fmt::Display for PersonalInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Name   : {}", self.full_name())?;
+        if let Some(nickname) = &self.nickname {
+            writeln!(f, "Callsign: {}", nickname)?;
+        }
         writeln!(f, "Age    : {}", self.age)?;
         write!(f, "Gender : {}", self.gender)
     }
@@ -133,4 +157,13 @@ impl fmt::Display for PersonalInfo {
 fn prompt_yes_no(message: &str) -> bool {
     println!("{}", message);
     matches!(read_int("Selection: "), 1)
+}
+
+fn normalize_optional(input: String) -> Option<String> {
+    let trimmed = input.trim().to_string();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed)
+    }
 }
