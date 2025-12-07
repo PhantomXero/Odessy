@@ -1,10 +1,10 @@
-use super::weapon::{Weapon, WeaponInfo};
+use super::weapon::{Weapon, WeaponCategory, WeaponInfo};
 use el_roi::read_int;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
 const FIGHT_STYLE_GUIDE: &str =
-    "Fighting styles define stance bonuses and which weapon pools you can specialize in.";
+    "Fighting styles define stance bonuses and unlock curated weapon pools tied to each archetype.";
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum FightingStyle {
@@ -12,6 +12,8 @@ pub enum FightingStyle {
     DualBladeWelder,
     Tank,
     Caster,
+    Ranger,
+    Brawler,
 }
 
 impl fmt::Display for FightingStyle {
@@ -21,6 +23,8 @@ impl fmt::Display for FightingStyle {
             FightingStyle::DualBladeWelder => "Dual Blade",
             FightingStyle::Tank => "Tank",
             FightingStyle::Caster => "Caster",
+            FightingStyle::Ranger => "Ranger",
+            FightingStyle::Brawler => "Brawler",
         };
         write!(f, "{}", label)
     }
@@ -98,14 +102,23 @@ fn style_options() -> Vec<(i32, FightingStyle)> {
         (2, FightingStyle::DualBladeWelder),
         (3, FightingStyle::Tank),
         (4, FightingStyle::Caster),
+        (5, FightingStyle::Ranger),
+        (6, FightingStyle::Brawler),
     ]
 }
 
 fn weapons_for(style: FightingStyle) -> Vec<Weapon> {
-    match style {
-        FightingStyle::SwordsMan => vec![Weapon::LongSword, Weapon::ShortSword],
-        FightingStyle::DualBladeWelder => vec![Weapon::DualShortSword, Weapon::DualLongSword],
-        FightingStyle::Tank => vec![Weapon::Hammer, Weapon::Axe],
-        FightingStyle::Caster => vec![Weapon::Hands],
-    }
+    let allowed_categories = match style {
+        FightingStyle::SwordsMan => vec![WeaponCategory::Swordsman],
+        FightingStyle::DualBladeWelder => vec![WeaponCategory::DualBlade],
+        FightingStyle::Tank => vec![WeaponCategory::Tank],
+        FightingStyle::Caster => vec![WeaponCategory::Caster],
+        FightingStyle::Ranger => vec![WeaponCategory::Ranger],
+        FightingStyle::Brawler => vec![WeaponCategory::Brawler],
+    };
+
+    WeaponInfo::new_weapons()
+        .into_iter()
+        .filter(|weapon| allowed_categories.contains(&weapon.category()))
+        .collect()
 }
