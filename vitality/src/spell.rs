@@ -3,9 +3,11 @@ use crate::{aqua, glacia, igna, nulla, planta, terra, venta, volt, umbra};
 use rusqlite::{self, types::Type, Row};
 use serde::{Deserialize, Serialize};
 use serde_json;
+use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::error::Error;
 use std::fmt;
+use std::sync::OnceLock;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum SpellTier {
@@ -122,12 +124,67 @@ impl DurationType {
             DurationType::Construct { .. } => "Construct",
         }
     }
+
+    pub fn semantics(&self) -> DurationSemantics {
+        match self {
+            DurationType::Instant => DurationSemantics {
+                persistence: EnvironmentPersistence::None,
+                world_pressure: WorldPressure::Low,
+                footprint: EnvironmentFootprint::None,
+            },
+            DurationType::Timed(_) => DurationSemantics {
+                persistence: EnvironmentPersistence::Temporary,
+                world_pressure: WorldPressure::Medium,
+                footprint: EnvironmentFootprint::Zone,
+            },
+            DurationType::Channel { .. } => DurationSemantics {
+                persistence: EnvironmentPersistence::Sustained,
+                world_pressure: WorldPressure::High,
+                footprint: EnvironmentFootprint::Zone,
+            },
+            DurationType::Construct { .. } => DurationSemantics {
+                persistence: EnvironmentPersistence::Anchored,
+                world_pressure: WorldPressure::High,
+                footprint: EnvironmentFootprint::Structure,
+            },
+        }
+    }
 }
 
 impl Default for DurationType {
     fn default() -> Self {
         DurationType::Instant
     }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub enum EnvironmentPersistence {
+    None,
+    Temporary,
+    Sustained,
+    Anchored,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub enum WorldPressure {
+    Low,
+    Medium,
+    High,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub enum EnvironmentFootprint {
+    None,
+    Trace,
+    Zone,
+    Structure,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct DurationSemantics {
+    pub persistence: EnvironmentPersistence,
+    pub world_pressure: WorldPressure,
+    pub footprint: EnvironmentFootprint,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -180,6 +237,122 @@ pub enum SpellBehavior {
     Defense(DefenseBehavior),
     Utility(UtilityBehavior),
     Support(SupportBehavior),
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum MovementEffect {
+    Accelerate,
+    Slow,
+    Suspend,
+    Grounding,
+    Turbulent,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum VisibilityEffect {
+    Clear,
+    Obscure,
+    Mirage,
+    Static,
+    Eclipse,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum TemperatureEffect {
+    Scorching,
+    Chilling,
+    Temperate,
+    Corrosive,
+    Nullifying,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum TerrainTag {
+    Scorch,
+    Flood,
+    Frost,
+    Stone,
+    Growth,
+    Gale,
+    Charge,
+    Void,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TerrainTransform {
+    pub rule_id: &'static str,
+    pub tag: TerrainTag,
+    pub description: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ConductivityLevel {
+    Insulator,
+    Low,
+    Medium,
+    High,
+    Plasma,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum SpecialInteraction {
+    Ignite,
+    SteamBurst,
+    Shatter,
+    Quake,
+    Bloom,
+    Shear,
+    Overload,
+    Dread,
+}
+
+impl SpecialInteraction {
+    pub fn modifier(self) -> f32 {
+        match self {
+            SpecialInteraction::Ignite => 1.1,
+            SpecialInteraction::SteamBurst => 1.08,
+            SpecialInteraction::Shatter => 1.12,
+            SpecialInteraction::Quake => 1.06,
+            SpecialInteraction::Bloom => 1.05,
+            SpecialInteraction::Shear => 1.07,
+            SpecialInteraction::Overload => 1.09,
+            SpecialInteraction::Dread => 1.04,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct ElementPhysicsProfile {
+    pub movement_effect: MovementEffect,
+    pub visibility_effect: VisibilityEffect,
+    pub temperature_effect: TemperatureEffect,
+    pub terrain_effects: Vec<TerrainTransform>,
+    pub conductivity: ConductivityLevel,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct ElementBehaviorRule {
+    pub rule_id: &'static str,
+    pub behavior: SpellBehavior,
+    pub modifier: f32,
+    pub notes: &'static str,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ElementInteractionRule {
+    pub rule_id: &'static str,
+    pub attacker: VitalityElement,
+    pub defender: VitalityElement,
+    pub multiplier: f32,
+    pub special_effect: Option<SpecialInteraction>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ElementRuleSet {
+    pub element: VitalityElement,
+    pub physics: ElementPhysicsProfile,
+    pub behaviors: Vec<ElementBehaviorRule>,
+    pub interactions: Vec<ElementInteractionRule>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
