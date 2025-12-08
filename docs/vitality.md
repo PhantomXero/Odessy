@@ -3,9 +3,8 @@
 The `vitality` crate owns elemental attunement, stamina pools, and spell scaffolding. This document will grow with balance tables and status effect specs.
 
 ## Outline
-- **Elements & Levels** – catalog enums such as `VitalityElement` and `VitalityLevel`, including the one-element-only rule.
-- **Spells & Status** – placeholder for spell cards, cooldown math, and how vitality interacts with physical stats.
-- **Progression Hooks** – describe how `VitalityInfo::level_up` or future training loops feed into the global character level.
-- **Integration Points** – where the crate exposes serde, how it syncs with storage/UI, and how other crates should request vitality changes.
-
-_Details to be added alongside the spell system implementation._
+- **Elements & Levels** – `core.rs` exports `VitalityElement`, `VitalityLevel`, and the neutral `VitalityProfile`. Attributes stay low (control/power/cooldown rate) so gameplay loops can grow them alongside physical stats.
+- **Mana Module** – `mana.rs` defines `ManaArchetype` + `ManaPool`, including the caster +10 capacity buffer and helpers for synchronizing archetypes when classes change.
+- **Spell Scaffolding** – `spell.rs` owns `SpellSignature` (element tag, mana cost, cooldown) and lightweight `SpellBook` collections so any crate can register spells without duplicating math.
+- **Progression Hooks** – `VitalityProfile::advance_level` is the single entry point for bumping ranks; it auto-applies modest stat bumps and leaves room for future training events.
+- **Integration Points** – consumer crates (e.g., `character`) import the serde-friendly structs directly, keeping UI/state code thin while all elemental logic lives here.
