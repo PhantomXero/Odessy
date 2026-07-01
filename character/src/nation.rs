@@ -1,13 +1,8 @@
-use el_roi::read_int;
+use crate::prompt::{select_from_menu, MenuItem};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
 const HISTORY_GUIDE: &str = "History defines where your loyalties, taxes, and faction bonuses come from. Nations rarely change, but social class can grow with prestige.";
-
-enum List {
-    Nation,
-    SocialClass,
-}
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Nation {
@@ -16,10 +11,21 @@ pub enum Nation {
 
 impl fmt::Display for Nation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let label = match self {
+        write!(f, "{} {}", self.emoji(), self.label())
+    }
+}
+
+impl Nation {
+    fn label(&self) -> &'static str {
+        match self {
             Nation::Arigo => "Arigo",
-        };
-        write!(f, "{}", label)
+        }
+    }
+
+    fn emoji(&self) -> &'static str {
+        match self {
+            Nation::Arigo => "🏛️",
+        }
     }
 }
 
@@ -33,13 +39,27 @@ pub enum SocialClass {
 
 impl fmt::Display for SocialClass {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let label = match self {
+        write!(f, "{} {}", self.emoji(), self.label())
+    }
+}
+
+impl SocialClass {
+    fn label(&self) -> &'static str {
+        match self {
             SocialClass::Royal => "Royal",
             SocialClass::Noble => "Noble",
             SocialClass::Military => "Military",
             SocialClass::Civilian => "Civilian",
-        };
-        write!(f, "{}", label)
+        }
+    }
+
+    fn emoji(&self) -> &'static str {
+        match self {
+            SocialClass::Royal => "👑",
+            SocialClass::Noble => "🏰",
+            SocialClass::Military => "⚔️",
+            SocialClass::Civilian => "🧑",
+        }
     }
 }
 
@@ -62,19 +82,24 @@ impl CivicInfo {
     pub fn edit(&mut self) {
         println!("--- History ---");
         println!("{}", HISTORY_GUIDE);
-        Self::lists(List::Nation);
-        self.nationality = match read_int("Enter the number of your Nationality: ") {
-            1 => Nation::Arigo,
+        let nation_choice = select_from_menu(
+            "Nation",
+            Some(HISTORY_GUIDE),
+            &[MenuItem::with_info(
+                "Arigo",
+                "Heartland empire. Stable taxes, formal courts, and persistent faction wars.",
+            )],
+        );
+        self.nationality = match nation_choice.index {
+            0 => Nation::Arigo,
             _ => Nation::Arigo,
         };
-        Self::lists(List::SocialClass);
-        self.social_class = match read_int("Enter the number of your Social Class: ") {
-            1 => SocialClass::Civilian,
-            2 => SocialClass::Military,
-            3 => SocialClass::Noble,
-            4 => SocialClass::Royal,
-            _ => self.social_class.clone(),
-        };
+        println!("Nation: {}", self.nationality);
+        self.social_class = SocialClass::Civilian;
+        println!(
+            "Social Class: {} (all heroes begin at base rank; prestige will advance it later)",
+            self.social_class
+        );
     }
     pub fn level_up(&mut self) {
         match self.social_class {
@@ -90,21 +115,6 @@ impl CivicInfo {
 
     pub fn social_class(&self) -> &SocialClass {
         &self.social_class
-    }
-    fn lists(list: List) {
-        match list {
-            List::Nation => {
-                println!("Nation");
-                println!("1. {}", Nation::Arigo);
-            }
-            List::SocialClass => {
-                println!("Social Class");
-                println!("1. {}", SocialClass::Civilian);
-                println!("2. {}", SocialClass::Military);
-                println!("3. {}", SocialClass::Noble);
-                println!("4. {}", SocialClass::Royal);
-            }
-        }
     }
 }
 

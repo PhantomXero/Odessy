@@ -1,4 +1,5 @@
-use el_roi::{read_float, read_int};
+use crate::prompt::{select_from_menu, MenuItem};
+use el_roi::read_float;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -11,6 +12,8 @@ const SPEED_MIN: u8 = 1;
 const SPEED_MAX: u8 = 100;
 const STRENGTH_MIN: u8 = 1;
 const STRENGTH_MAX: u8 = 100;
+const MANA_PRESSURE_MIN: u8 = 1;
+const MANA_PRESSURE_MAX: u8 = 100;
 const STARTING_STAT_POINTS: u8 = 10;
 const LEVEL_POINT_BONUS: u8 = 5;
 const MAX_TOTAL_POINTS: u8 = 100;
@@ -18,11 +21,8 @@ const TEMP_BONUS_MIN: i8 = -20;
 const TEMP_BONUS_MAX: i8 = 20;
 
 enum List {
-    Build,
-    Hand,
     Height,
     Weight,
-    Skin,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -33,15 +33,25 @@ pub enum DominantHand {
 
 impl fmt::Display for DominantHand {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let label = match self {
-            DominantHand::Left => "Left",
-            DominantHand::Right => "Right",
-        };
-        write!(f, "{}", label)
+        write!(f, "{} {}", self.emoji(), self.label())
     }
 }
 
 impl DominantHand {
+    fn label(self) -> &'static str {
+        match self {
+            DominantHand::Left => "Left",
+            DominantHand::Right => "Right",
+        }
+    }
+
+    fn emoji(self) -> &'static str {
+        match self {
+            DominantHand::Left => "👈",
+            DominantHand::Right => "👉",
+        }
+    }
+
     fn other(self) -> Self {
         match self {
             DominantHand::Left => DominantHand::Right,
@@ -51,7 +61,7 @@ impl DominantHand {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-enum SkinColour {
+pub enum SkinColour {
     Black,
     White,
     Yellow,
@@ -60,13 +70,27 @@ enum SkinColour {
 
 impl fmt::Display for SkinColour {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let label = match self {
+        write!(f, "{} {}", self.emoji(), self.label())
+    }
+}
+
+impl SkinColour {
+    fn label(self) -> &'static str {
+        match self {
             SkinColour::Black => "Black",
             SkinColour::White => "White",
             SkinColour::Yellow => "Yellow",
             SkinColour::Red => "Red",
-        };
-        write!(f, "{}", label)
+        }
+    }
+
+    fn emoji(self) -> &'static str {
+        match self {
+            SkinColour::Black => "⬛",
+            SkinColour::White => "⬜",
+            SkinColour::Yellow => "🟡",
+            SkinColour::Red => "🔴",
+        }
     }
 }
 
@@ -173,6 +197,27 @@ pub struct PhysicalInfo {
     right_hand_profile: HandProfile,
     speed: u8,
     strength: u8,
+    #[serde(default = "default_mana_thresholds")]
+    mana_thresholds: ManaThresholds,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct ManaThresholds {
+    pub pressure: u8,
+    pub recovery: u8,
+}
+
+impl Default for ManaThresholds {
+    fn default() -> Self {
+        Self {
+            pressure: MANA_PRESSURE_MIN,
+            recovery: MANA_PRESSURE_MIN,
+        }
+    }
+}
+
+fn default_mana_thresholds() -> ManaThresholds {
+    ManaThresholds::default()
 }
 
 impl PhysicalInfo {
@@ -198,6 +243,7 @@ impl PhysicalInfo {
             right_hand_profile: HandProfile::default(),
             speed: SPEED_MIN,
             strength: STRENGTH_MIN,
+            mana_thresholds: ManaThresholds::default(),
         };
         info.recalculate_stats();
         info
@@ -213,6 +259,10 @@ impl PhysicalInfo {
 
     pub fn weight(&self) -> f64 {
         self.weight
+    }
+
+    pub fn skin_colour(&self) -> SkinColour {
+        self.skin
     }
 
     pub fn physique(&self) -> Physic {
@@ -234,6 +284,10 @@ impl PhysicalInfo {
 
     pub fn strength(&self) -> u8 {
         self.strength
+    }
+
+    pub fn mana_thresholds(&self) -> ManaThresholds {
+        self.mana_thresholds
     }
 
     pub fn dominant_hand(&self) -> DominantHand {
@@ -307,27 +361,75 @@ impl PhysicalInfo {
             "Suggested build: {} (BMI {:.1}). Speed and strength bonuses are based on this.",
             recommended, bmi
         );
-        if prompt_yes_no("Accept suggested build? (1 Yes / 2 No)") {
+        if prompt_yes_no("Accept suggested build?") {
             self.physic = recommended;
         } else {
             self.physic = Self::prompt_physic_choice(bmi);
         }
 
-        Self::list(List::Skin);
-        self.skin = match read_int("Enter the number of your Skin Colour: ") {
-            1 => SkinColour::Black,
-            2 => SkinColour::Red,
-            3 => SkinColour::White,
-            4 => SkinColour::Yellow,
-            _ => SkinColour::Black,
-        };
+        let skin_entries = vec![
+            (
+                SkinColour::Black,
+                MenuItem::with_info(
+                    SkinColour::Black.to_string(),
+                    "Deep melanin; resilient against arc scorch and harsh desert suns.",
+                ),
+            ),
+            (
+                SkinColour::Red,
+                MenuItem::with_info(
+                    SkinColour::Red.to_string(),
+                    "Ruddy bronze hues common in volcanic regions. Thrives under Igna mana.",
+                ),
+            ),
+            (
+                SkinColour::White,
+                MenuItem::with_info(
+                    SkinColour::White.to_string(),
+                    "Pale tones. Shows bruising quickly but reflects rune tattoos vividly.",
+                ),
+            ),
+            (
+                SkinColour::Yellow,
+                MenuItem::with_info(
+                    SkinColour::Yellow.to_string(),
+                    "Golden undertones tied to eastern trade winds. Harmonizes with Venta aether.",
+                ),
+            ),
+        ];
+        let skin_menu: Vec<MenuItem> = skin_entries.iter().map(|(_, item)| item.clone()).collect();
+        let skin_choice = select_from_menu("Skin Colour", None, &skin_menu);
+        self.skin = skin_entries[skin_choice.index].0;
+        println!("Skin Colour: {}", self.skin);
 
-        Self::list(List::Hand);
-        self.dominant_hand = match read_int("Enter the number of your Dominant Hand: ") {
-            1 => DominantHand::Left,
-            2 => DominantHand::Right,
-            _ => DominantHand::Right,
-        };
+        let hand_entries = vec![
+            (
+                DominantHand::Left,
+                MenuItem::with_info(
+                    DominantHand::Left.to_string(),
+                    "Southpaw stance. Control bonuses grow faster; weapon guards flip mirroring.",
+                ),
+            ),
+            (
+                DominantHand::Right,
+                MenuItem::with_info(
+                    DominantHand::Right.to_string(),
+                    "Orthodox stance. Most training manuals and relic grips assume this hand.",
+                ),
+            ),
+        ];
+        let hand_menu: Vec<MenuItem> = hand_entries.iter().map(|(_, item)| item.clone()).collect();
+        let hand_choice = select_from_menu(
+            "Dominant Hand",
+            Some("Ambidexterity unlocks later via focused training."),
+            &hand_menu,
+        );
+        self.dominant_hand = hand_entries[hand_choice.index].0;
+        println!(
+            "Dominant Hand: {} (off-hand begins as {})",
+            self.dominant_hand,
+            self.dominant_hand.other()
+        );
 
         self.recalculate_stats();
         Ok(())
@@ -373,29 +475,11 @@ impl PhysicalInfo {
 
     fn list(list: List) {
         match list {
-            List::Build => {
-                println!("Physic");
-                println!("1. {}", Physic::Athletic);
-                println!("2. {}", Physic::Lean);
-                println!("3. {}", Physic::Muscular);
-            }
-            List::Hand => {
-                println!("Dominant Hand (ambidexterity becomes available via training later)");
-                println!("1. {}", DominantHand::Left);
-                println!("2. {}", DominantHand::Right);
-            }
             List::Height => {
                 println!("Height Range: {HEIGHT_MIN}-{HEIGHT_MAX} cm");
             }
             List::Weight => {
                 println!("Weight Range: {WEIGHT_MIN}-{WEIGHT_MAX} kg");
-            }
-            List::Skin => {
-                println!("Skin Colour");
-                println!("1. {}", SkinColour::Black);
-                println!("2. {}", SkinColour::Red);
-                println!("3. {}", SkinColour::White);
-                println!("4. {}", SkinColour::Yellow);
             }
         }
     }
@@ -421,20 +505,32 @@ impl PhysicalInfo {
     }
 
     fn prompt_physic_choice(bmi: f64) -> Physic {
+        let builds = [Physic::Athletic, Physic::Lean, Physic::Muscular];
+        let items: Vec<MenuItem> = builds
+            .iter()
+            .map(|physic| {
+                let info = match physic {
+                    Physic::Athletic => "Balanced frame. Keeps speed/strength within a wide comfort zone.",
+                    Physic::Lean => "Speed focused. Lower load tolerance but insane reaction time.",
+                    Physic::Muscular => "Powerhouse. Trades agility for burst damage and carry weight.",
+                };
+                MenuItem::with_info(physic.to_string(), info)
+            })
+            .collect();
         loop {
-            Self::list(List::Build);
-            let selection = match read_int("Enter the number of your Physic: ") {
-                1 => Physic::Athletic,
-                2 => Physic::Lean,
-                3 => Physic::Muscular,
-                _ => Physic::Lean,
-            };
-            if can_apply_physic(selection, bmi) {
-                return selection;
+            let guide = format!(
+                "BMI {:.1} allows specific builds. Lean thrives under 19.5; Muscular prefers 25+.",
+                bmi
+            );
+            let selection = select_from_menu("Select Physic", Some(&guide), &items);
+            let candidate = builds[selection.index];
+            if can_apply_physic(candidate, bmi) {
+                println!("Physic: {}", candidate);
+                return candidate;
             }
             println!(
                 "Physic {} is not available for BMI {:.1}. Please adjust height/weight or pick another.",
-                selection, bmi
+                candidate, bmi
             );
         }
     }
@@ -496,7 +592,35 @@ impl PhysicalInfo {
 
         self.speed = clamp(SPEED_MIN as i32, SPEED_MAX as i32, speed) as u8;
         self.strength = clamp(STRENGTH_MIN as i32, STRENGTH_MAX as i32, strength) as u8;
+        self.rebuild_mana_thresholds();
         self.update_hand_profiles();
+    }
+
+    fn rebuild_mana_thresholds(&mut self) {
+        let tier = self.tier();
+        let (base_pressure, base_recovery) = match tier {
+            PhysicalTier::Drifter => (8, 6),
+            PhysicalTier::Strider => (14, 9),
+            PhysicalTier::Vanguard => (22, 14),
+            PhysicalTier::Titan => (32, 19),
+            PhysicalTier::Colossus => (44, 24),
+        };
+        let physique_bonus = match self.physic {
+            Physic::Lean => (4, 6),
+            Physic::Athletic => (6, 6),
+            Physic::Muscular => (8, 4),
+        };
+        let pressure = clamp(
+            MANA_PRESSURE_MIN as i32,
+            MANA_PRESSURE_MAX as i32,
+            base_pressure + physique_bonus.0,
+        ) as u8;
+        let recovery = clamp(
+            MANA_PRESSURE_MIN as i32,
+            MANA_PRESSURE_MAX as i32,
+            base_recovery + physique_bonus.1,
+        ) as u8;
+        self.mana_thresholds = ManaThresholds { pressure, recovery };
     }
 
     pub fn apply_progress(&mut self, progression: PhysicalProgression) -> bool {
@@ -657,7 +781,12 @@ impl fmt::Display for PhysicalInfo {
             self.dominant_hand
         )?;
         writeln!(f, "Speed  : {}", self.speed)?;
-        write!(f, "Strength: {}", self.strength)
+        writeln!(f, "Strength: {}", self.strength)?;
+        write!(
+            f,
+            "Mana    : Pressure {} | Recovery {}",
+            self.mana_thresholds.pressure, self.mana_thresholds.recovery
+        )
     }
 }
 
@@ -801,6 +930,11 @@ fn clamp_i8(min: i8, max: i8, value: i8) -> i8 {
 }
 
 fn prompt_yes_no(message: &str) -> bool {
-    println!("{}", message);
-    matches!(read_int("Selection: "), 1)
+    let options = vec![
+        MenuItem::with_info("Yes", "Accept the recommendation."),
+        MenuItem::with_info("No", "Pick a different option manually."),
+    ];
+    let selection = select_from_menu(message, None, &options);
+    println!("{}: {}", message, selection.label);
+    selection.index == 0
 }

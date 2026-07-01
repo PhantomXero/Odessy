@@ -8,6 +8,22 @@ use vitality::spell::{all_spell_records, SpellRecord};
 pub struct CharacterSummary {
     pub id: i64,
     pub name: String,
+    pub badges: Vec<String>,
+}
+
+impl CharacterSummary {
+    pub fn menu_label(&self) -> String {
+        if self.badges.is_empty() {
+            format!("{} (ID {})", self.name, self.id)
+        } else {
+            format!(
+                "{} (ID {}) – {}",
+                self.name,
+                self.id,
+                self.badges.join(" | ")
+            )
+        }
+    }
 }
 
 pub struct CharacterStore {
@@ -26,12 +42,14 @@ impl CharacterStore {
     pub fn list_characters(&self) -> rusqlite::Result<Vec<CharacterSummary>> {
         let mut stmt = self
             .conn
-            .prepare("SELECT id, name FROM characters ORDER BY id DESC")?;
+            .prepare("SELECT id, name, payload FROM characters ORDER BY id DESC")?;
         let rows = stmt
             .query_map([], |row| {
+                let payload: String = row.get(2)?;
                 Ok(CharacterSummary {
                     id: row.get(0)?,
                     name: row.get(1)?,
+                    badges: character_badges(&payload),
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -200,4 +218,24 @@ impl CharacterStore {
             }
         }
     }
+}
+
+fn character_badges(payload: &str) -> Vec<String> {
+    let mut badges = Vec::new();
+    let Ok(character) = serde_json::from_str::<Character>(payload) else {
+        return badges;
+    };
+
+    let element = character.vitality().profile().element().to_string();
+    badges.push(element);
+
+    if let Some(warrior) = character.warrior() {
+        badges.push(warrior.weapon_badge());
+    }
+
+    badges.push(character.civic().social_class().to_string());
+    badges.push(character.physical().skin_colour().to_string());
+    badges.push(character.physical().dominant_hand().to_string());
+
+    badges
 }

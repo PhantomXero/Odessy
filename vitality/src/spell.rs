@@ -3,6 +3,7 @@ use crate::{aqua, glacia, igna, nulla, planta, terra, venta, volt, umbra};
 use rusqlite::{self, types::Type, Row};
 use serde::{Deserialize, Serialize};
 use serde_json;
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::error::Error;
@@ -239,7 +240,7 @@ pub enum SpellBehavior {
     Support(SupportBehavior),
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MovementEffect {
     Accelerate,
     Slow,
@@ -248,7 +249,7 @@ pub enum MovementEffect {
     Turbulent,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VisibilityEffect {
     Clear,
     Obscure,
@@ -257,7 +258,7 @@ pub enum VisibilityEffect {
     Eclipse,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TemperatureEffect {
     Scorching,
     Chilling,
@@ -266,7 +267,7 @@ pub enum TemperatureEffect {
     Nullifying,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TerrainTag {
     Scorch,
     Flood,
@@ -278,14 +279,14 @@ pub enum TerrainTag {
     Void,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct TerrainTransform {
     pub rule_id: &'static str,
     pub tag: TerrainTag,
     pub description: &'static str,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ConductivityLevel {
     Insulator,
     Low,
@@ -294,7 +295,7 @@ pub enum ConductivityLevel {
     Plasma,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SpecialInteraction {
     Ignite,
     SteamBurst,
@@ -321,7 +322,7 @@ impl SpecialInteraction {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ElementPhysicsProfile {
     pub movement_effect: MovementEffect,
     pub visibility_effect: VisibilityEffect,
@@ -330,7 +331,7 @@ pub struct ElementPhysicsProfile {
     pub conductivity: ConductivityLevel,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ElementBehaviorRule {
     pub rule_id: &'static str,
     pub behavior: SpellBehavior,
@@ -338,7 +339,7 @@ pub struct ElementBehaviorRule {
     pub notes: &'static str,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ElementInteractionRule {
     pub rule_id: &'static str,
     pub attacker: VitalityElement,
@@ -347,7 +348,7 @@ pub struct ElementInteractionRule {
     pub special_effect: Option<SpecialInteraction>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ElementRuleSet {
     pub element: VitalityElement,
     pub physics: ElementPhysicsProfile,
@@ -912,6 +913,453 @@ pub fn all_spell_records() -> Vec<SpellRecord> {
         .collect()
 }
 
+static ELEMENT_RULEBOOK: OnceLock<HashMap<VitalityElement, ElementRuleSet>> = OnceLock::new();
+
+fn element_rulebook() -> &'static HashMap<VitalityElement, ElementRuleSet> {
+    ELEMENT_RULEBOOK.get_or_init(build_element_rulebook)
+}
+
+fn build_element_rulebook() -> HashMap<VitalityElement, ElementRuleSet> {
+    let physics = physics_seed_map();
+    let behaviors = behavior_seed_map();
+    let interactions = interaction_seed_data();
+
+    let mut map = HashMap::new();
+    for element in VitalityElement::ALL.iter().copied() {
+        let physics_profile = physics
+            .get(&element)
+            .cloned()
+            .unwrap_or_else(|| ElementPhysicsProfile {
+                movement_effect: MovementEffect::Grounding,
+                visibility_effect: VisibilityEffect::Clear,
+                temperature_effect: TemperatureEffect::Temperate,
+                terrain_effects: Vec::new(),
+                conductivity: ConductivityLevel::Medium,
+            });
+        let behavior_rules = behaviors.get(&element).cloned().unwrap_or_default();
+        let interaction_rules = interactions
+            .iter()
+            .filter(|rule| rule.attacker == element)
+            .cloned()
+            .collect();
+        map.insert(
+            element,
+            ElementRuleSet {
+                element,
+                physics: physics_profile,
+                behaviors: behavior_rules,
+                interactions: interaction_rules,
+            },
+        );
+    }
+    map
+}
+
+fn physics_seed_map() -> HashMap<VitalityElement, ElementPhysicsProfile> {
+    use VitalityElement::*;
+    vec![
+        (
+            Igna,
+            ElementPhysicsProfile {
+                movement_effect: MovementEffect::Accelerate,
+                visibility_effect: VisibilityEffect::Mirage,
+                temperature_effect: TemperatureEffect::Scorching,
+                terrain_effects: vec![TerrainTransform {
+                    rule_id: "IGNA-01",
+                    tag: TerrainTag::Scorch,
+                    description: "Cinders linger and overheat the ground",
+                }],
+                conductivity: ConductivityLevel::Plasma,
+            },
+        ),
+        (
+            Aqua,
+            ElementPhysicsProfile {
+                movement_effect: MovementEffect::Slow,
+                visibility_effect: VisibilityEffect::Obscure,
+                temperature_effect: TemperatureEffect::Temperate,
+                terrain_effects: vec![TerrainTransform {
+                    rule_id: "AQUA-01",
+                    tag: TerrainTag::Flood,
+                    description: "Flooding currents reshape the arena",
+                }],
+                conductivity: ConductivityLevel::High,
+            },
+        ),
+        (
+            Glacia,
+            ElementPhysicsProfile {
+                movement_effect: MovementEffect::Grounding,
+                visibility_effect: VisibilityEffect::Static,
+                temperature_effect: TemperatureEffect::Chilling,
+                terrain_effects: vec![TerrainTransform {
+                    rule_id: "GLAC-01",
+                    tag: TerrainTag::Frost,
+                    description: "Frost plates form slick cover",
+                }],
+                conductivity: ConductivityLevel::Low,
+            },
+        ),
+        (
+            Terra,
+            ElementPhysicsProfile {
+                movement_effect: MovementEffect::Grounding,
+                visibility_effect: VisibilityEffect::Clear,
+                temperature_effect: TemperatureEffect::Temperate,
+                terrain_effects: vec![TerrainTransform {
+                    rule_id: "TERRA-01",
+                    tag: TerrainTag::Stone,
+                    description: "Stone pillars rise from the battlefield",
+                }],
+                conductivity: ConductivityLevel::Insulator,
+            },
+        ),
+        (
+            Planta,
+            ElementPhysicsProfile {
+                movement_effect: MovementEffect::Slow,
+                visibility_effect: VisibilityEffect::Obscure,
+                temperature_effect: TemperatureEffect::Temperate,
+                terrain_effects: vec![TerrainTransform {
+                    rule_id: "PLANTA-01",
+                    tag: TerrainTag::Growth,
+                    description: "Overgrowth creates living cover",
+                }],
+                conductivity: ConductivityLevel::Medium,
+            },
+        ),
+        (
+            Venta,
+            ElementPhysicsProfile {
+                movement_effect: MovementEffect::Turbulent,
+                visibility_effect: VisibilityEffect::Mirage,
+                temperature_effect: TemperatureEffect::Temperate,
+                terrain_effects: vec![TerrainTransform {
+                    rule_id: "VENTA-01",
+                    tag: TerrainTag::Gale,
+                    description: "Shearing winds erode footing",
+                }],
+                conductivity: ConductivityLevel::Low,
+            },
+        ),
+        (
+            Volt,
+            ElementPhysicsProfile {
+                movement_effect: MovementEffect::Accelerate,
+                visibility_effect: VisibilityEffect::Static,
+                temperature_effect: TemperatureEffect::Corrosive,
+                terrain_effects: vec![TerrainTransform {
+                    rule_id: "VOLT-01",
+                    tag: TerrainTag::Charge,
+                    description: "Charged lattice amplifies shocks",
+                }],
+                conductivity: ConductivityLevel::Plasma,
+            },
+        ),
+        (
+            Umbra,
+            ElementPhysicsProfile {
+                movement_effect: MovementEffect::Suspend,
+                visibility_effect: VisibilityEffect::Eclipse,
+                temperature_effect: TemperatureEffect::Nullifying,
+                terrain_effects: vec![TerrainTransform {
+                    rule_id: "UMBRA-01",
+                    tag: TerrainTag::Void,
+                    description: "Shadow wells dampen color and sound",
+                }],
+                conductivity: ConductivityLevel::Low,
+            },
+        ),
+        (
+            Null,
+            ElementPhysicsProfile {
+                movement_effect: MovementEffect::Grounding,
+                visibility_effect: VisibilityEffect::Clear,
+                temperature_effect: TemperatureEffect::Temperate,
+                terrain_effects: Vec::new(),
+                conductivity: ConductivityLevel::Medium,
+            },
+        ),
+    ]
+    .into_iter()
+    .collect()
+}
+
+fn behavior_seed_map() -> HashMap<VitalityElement, Vec<ElementBehaviorRule>> {
+    use VitalityElement::*;
+    vec![
+        (
+            Igna,
+            vec![
+                ElementBehaviorRule {
+                    rule_id: "IGNA-02",
+                    behavior: SpellBehavior::Attack(AttackBehavior::Burst),
+                    modifier: 1.12,
+                    notes: "Burst ignites residual fuel",
+                },
+                ElementBehaviorRule {
+                    rule_id: "IGNA-03",
+                    behavior: SpellBehavior::Defense(DefenseBehavior::Shield),
+                    modifier: 0.95,
+                    notes: "Heat shimmer shields decay faster",
+                },
+            ],
+        ),
+        (
+            Aqua,
+            vec![
+                ElementBehaviorRule {
+                    rule_id: "AQUA-02",
+                    behavior: SpellBehavior::Utility(UtilityBehavior::Flow),
+                    modifier: 1.1,
+                    notes: "Flow utilities expand coverage",
+                },
+                ElementBehaviorRule {
+                    rule_id: "AQUA-03",
+                    behavior: SpellBehavior::Attack(AttackBehavior::Jet),
+                    modifier: 1.05,
+                    notes: "Jet attacks gain laminar precision",
+                },
+            ],
+        ),
+        (
+            Glacia,
+            vec![
+                ElementBehaviorRule {
+                    rule_id: "GLAC-02",
+                    behavior: SpellBehavior::Attack(AttackBehavior::Sustain),
+                    modifier: 1.08,
+                    notes: "Sustained ice layers reinforce",
+                },
+                ElementBehaviorRule {
+                    rule_id: "GLAC-03",
+                    behavior: SpellBehavior::Defense(DefenseBehavior::Wall),
+                    modifier: 1.1,
+                    notes: "Glacial walls resist erosion",
+                },
+            ],
+        ),
+        (
+            Terra,
+            vec![
+                ElementBehaviorRule {
+                    rule_id: "TERRA-02",
+                    behavior: SpellBehavior::Defense(DefenseBehavior::Harden),
+                    modifier: 1.15,
+                    notes: "Earthen armor densifies under pressure",
+                },
+            ],
+        ),
+        (
+            Planta,
+            vec![
+                ElementBehaviorRule {
+                    rule_id: "PLANTA-02",
+                    behavior: SpellBehavior::Support(SupportBehavior::Regenerate),
+                    modifier: 1.12,
+                    notes: "Regrowth accelerates recovery",
+                },
+            ],
+        ),
+        (
+            Venta,
+            vec![
+                ElementBehaviorRule {
+                    rule_id: "VENTA-02",
+                    behavior: SpellBehavior::Attack(AttackBehavior::Jet),
+                    modifier: 1.07,
+                    notes: "Jet strikes shear armor",
+                },
+            ],
+        ),
+        (
+            Volt,
+            vec![
+                ElementBehaviorRule {
+                    rule_id: "VOLT-02",
+                    behavior: SpellBehavior::Attack(AttackBehavior::Storm),
+                    modifier: 1.1,
+                    notes: "Storm behavior builds charge",
+                },
+            ],
+        ),
+        (
+            Umbra,
+            vec![
+                ElementBehaviorRule {
+                    rule_id: "UMBRA-02",
+                    behavior: SpellBehavior::Utility(UtilityBehavior::Obscure),
+                    modifier: 1.15,
+                    notes: "Obscurity folds perception",
+                },
+            ],
+        ),
+    ]
+    .into_iter()
+    .collect()
+}
+
+fn interaction_seed_data() -> Vec<ElementInteractionRule> {
+    use SpecialInteraction::*;
+    use VitalityElement::*;
+    vec![
+        ElementInteractionRule {
+            rule_id: "IGNA-STR-PLANTA",
+            attacker: Igna,
+            defender: Planta,
+            multiplier: 1.35,
+            special_effect: Some(Ignite),
+        },
+        ElementInteractionRule {
+            rule_id: "IGNA-STR-GLACIA",
+            attacker: Igna,
+            defender: Glacia,
+            multiplier: 1.25,
+            special_effect: Some(Shatter),
+        },
+        ElementInteractionRule {
+            rule_id: "IGNA-WK-AQUA",
+            attacker: Igna,
+            defender: Aqua,
+            multiplier: 0.75,
+            special_effect: Some(SteamBurst),
+        },
+        ElementInteractionRule {
+            rule_id: "AQUA-STR-IGNA",
+            attacker: Aqua,
+            defender: Igna,
+            multiplier: 1.3,
+            special_effect: Some(SteamBurst),
+        },
+        ElementInteractionRule {
+            rule_id: "AQUA-STR-TERRA",
+            attacker: Aqua,
+            defender: Terra,
+            multiplier: 1.2,
+            special_effect: Some(Quake),
+        },
+        ElementInteractionRule {
+            rule_id: "AQUA-WK-VOLT",
+            attacker: Aqua,
+            defender: Volt,
+            multiplier: 0.7,
+            special_effect: Some(Overload),
+        },
+        ElementInteractionRule {
+            rule_id: "GLAC-STR-VENTA",
+            attacker: Glacia,
+            defender: Venta,
+            multiplier: 1.25,
+            special_effect: Some(Shatter),
+        },
+        ElementInteractionRule {
+            rule_id: "GLAC-WK-IGNA",
+            attacker: Glacia,
+            defender: Igna,
+            multiplier: 0.7,
+            special_effect: Some(Ignite),
+        },
+        ElementInteractionRule {
+            rule_id: "TERRA-STR-VOLT",
+            attacker: Terra,
+            defender: Volt,
+            multiplier: 1.2,
+            special_effect: Some(Quake),
+        },
+        ElementInteractionRule {
+            rule_id: "TERRA-WK-AQUA",
+            attacker: Terra,
+            defender: Aqua,
+            multiplier: 0.75,
+            special_effect: Some(SteamBurst),
+        },
+        ElementInteractionRule {
+            rule_id: "PLANTA-STR-TERRA",
+            attacker: Planta,
+            defender: Terra,
+            multiplier: 1.2,
+            special_effect: Some(Bloom),
+        },
+        ElementInteractionRule {
+            rule_id: "PLANTA-WK-IGNA",
+            attacker: Planta,
+            defender: Igna,
+            multiplier: 0.65,
+            special_effect: Some(Ignite),
+        },
+        ElementInteractionRule {
+            rule_id: "VENTA-STR-IGNA",
+            attacker: Venta,
+            defender: Igna,
+            multiplier: 1.15,
+            special_effect: Some(Shear),
+        },
+        ElementInteractionRule {
+            rule_id: "VENTA-WK-GLACIA",
+            attacker: Venta,
+            defender: Glacia,
+            multiplier: 0.8,
+            special_effect: Some(Shatter),
+        },
+        ElementInteractionRule {
+            rule_id: "VOLT-STR-AQUA",
+            attacker: Volt,
+            defender: Aqua,
+            multiplier: 1.3,
+            special_effect: Some(Overload),
+        },
+        ElementInteractionRule {
+            rule_id: "VOLT-WK-TERRA",
+            attacker: Volt,
+            defender: Terra,
+            multiplier: 0.78,
+            special_effect: Some(Quake),
+        },
+        ElementInteractionRule {
+            rule_id: "UMBRA-STR-AQUA",
+            attacker: Umbra,
+            defender: Aqua,
+            multiplier: 1.18,
+            special_effect: Some(Dread),
+        },
+        ElementInteractionRule {
+            rule_id: "UMBRA-WK-PLANTA",
+            attacker: Umbra,
+            defender: Planta,
+            multiplier: 0.82,
+            special_effect: Some(Bloom),
+        },
+    ]
+}
+
+pub fn element_rule_set(element: VitalityElement) -> Option<&'static ElementRuleSet> {
+    element_rulebook().get(&element)
+}
+
+fn find_interaction_rule(
+    attacker: VitalityElement,
+    defender: VitalityElement,
+) -> Option<&'static ElementInteractionRule> {
+    element_rule_set(attacker)?
+        .interactions
+        .iter()
+        .find(|rule| rule.defender == defender)
+}
+
+fn interaction_multiplier_with_rule(
+    attack: &VitalityElement,
+    defense: &VitalityElement,
+    spell: &SpellSignature,
+) -> (f32, Option<&'static ElementInteractionRule>) {
+    if *attack == VitalityElement::Null || *defense == VitalityElement::Null {
+        return (1.0, None);
+    }
+    if let Some(rule) = find_interaction_rule(*attack, *defense) {
+        return (rule.multiplier, Some(rule));
+    }
+    (elemental_bias(attack, defense, spell).multiplier(), None)
+}
+
 pub(crate) fn build_spell(
     element: VitalityElement,
     minimum_rank: VitalityLevel,
@@ -1007,7 +1455,7 @@ pub fn elemental_multiplier(
     defense: &VitalityElement,
     spell: &SpellSignature,
 ) -> f32 {
-    elemental_bias(attack, defense, spell).multiplier()
+    interaction_multiplier_with_rule(attack, defense, spell).0
 }
 
 fn elemental_bias(
@@ -1044,12 +1492,25 @@ pub fn resolve_spell_interaction(
     let defense_behaviors = defending_spell
         .map(|spell| spell.behaviors.clone())
         .unwrap_or_default();
-    let multiplier = elemental_multiplier(&attacking_spell.element, &defender_element, attacking_spell);
-    let behavior_multiplier = behavior_bias(&attacking_spell.behaviors, &defense_behaviors);
+    let (multiplier, interaction_rule) =
+        interaction_multiplier_with_rule(&attacking_spell.element, &defender_element, attacking_spell);
+    let special_modifier = interaction_rule
+        .and_then(|rule| rule.special_effect)
+        .map(|effect| effect.modifier())
+        .unwrap_or(1.0);
+    let behavior_multiplier = behavior_bias(&attacking_spell.behaviors, &defense_behaviors) * special_modifier;
+    let duration_modifier = duration_conflict_modifier(
+        attacking_spell,
+        defending_spell,
+        attacking_spell.element,
+        defender_element,
+    );
     let resistance_factor = (1.0 - weapon_magic_resistance).clamp(0.2, 1.0);
+
     let attack_strength = effective_strength(&attacking_spell.profile)
         * multiplier
         * behavior_multiplier
+        * duration_modifier
         * resistance_factor;
 
     let defense_strength = defending_spell
@@ -1162,4 +1623,81 @@ fn defense_bias(defending: &[SpellBehavior]) -> f32 {
         return 1.0;
     }
     defense_penalty(defending)
+}
+
+fn duration_conflict_modifier(
+    attacking_spell: &SpellSignature,
+    defending_spell: Option<&SpellSignature>,
+    attacker_element: VitalityElement,
+    defender_element: VitalityElement,
+) -> f32 {
+    if attacker_element == VitalityElement::Null || defender_element == VitalityElement::Null {
+        return 1.0;
+    }
+    let attack_semantics = attacking_spell.duration.semantics();
+    let defense_semantics = defending_spell.map(|spell| spell.duration.semantics());
+
+    let persistence_modifier = defense_semantics
+        .map(|defense|
+            match attack_semantics.persistence.cmp(&defense.persistence) {
+                Ordering::Greater => 1.06,
+                Ordering::Less => 0.95,
+                Ordering::Equal => 1.0,
+            }
+        )
+        .unwrap_or(1.03);
+
+    let pressure_modifier = defense_semantics
+        .map(|defense| match (attack_semantics.world_pressure, defense.world_pressure) {
+            (WorldPressure::High, WorldPressure::Low) => 1.08,
+            (WorldPressure::Medium, WorldPressure::Low) => 1.04,
+            (WorldPressure::Low, WorldPressure::High) => 0.9,
+            (WorldPressure::Low, WorldPressure::Medium) => 0.95,
+            (WorldPressure::High, WorldPressure::High) => 1.0,
+            (WorldPressure::Medium, WorldPressure::Medium) => 1.0,
+            _ => 1.0,
+        })
+        .unwrap_or_else(|| match attack_semantics.world_pressure {
+            WorldPressure::High => 1.07,
+            WorldPressure::Medium => 1.03,
+            WorldPressure::Low => 1.0,
+        });
+
+    let terrain_modifier = terrain_conflict_modifier(attacker_element, defender_element);
+    (persistence_modifier * pressure_modifier * terrain_modifier).clamp(0.8, 1.2)
+}
+
+fn terrain_conflict_modifier(
+    attacker_element: VitalityElement,
+    defender_element: VitalityElement,
+) -> f32 {
+    let attacker_rules = match element_rule_set(attacker_element) {
+        Some(rules) => rules,
+        None => return 1.0,
+    };
+    let defender_rules = match element_rule_set(defender_element) {
+        Some(rules) => rules,
+        None => return 1.0,
+    };
+    if attacker_rules.physics.terrain_effects.is_empty() {
+        return 1.0;
+    }
+    let overlap = attacker_rules.physics.terrain_effects.iter().any(|attack_tag| {
+        defender_rules
+            .physics
+            .terrain_effects
+            .iter()
+            .any(|defend_tag| defend_tag.tag == attack_tag.tag)
+    });
+    let terrain_modifier = if overlap { 1.0 } else { 1.03 };
+    let conductivity_modifier = match attacker_rules
+        .physics
+        .conductivity
+        .cmp(&defender_rules.physics.conductivity)
+    {
+        Ordering::Greater => 1.04,
+        Ordering::Less => 0.96,
+        Ordering::Equal => 1.0,
+    };
+    terrain_modifier * conductivity_modifier
 }

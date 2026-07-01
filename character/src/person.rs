@@ -1,3 +1,4 @@
+use crate::prompt::{select_from_menu, MenuItem};
 use el_roi::{read_int, read_string};
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -18,12 +19,25 @@ impl Default for Gender {
 
 impl Gender {
     fn prompt_selection() -> Self {
-        println!("Select Gender");
-        println!("1. Male");
-        println!("2. Female");
-        match read_int("Enter the number of your Gender: ") {
-            1 => Gender::Male,
-            2 => Gender::Female,
+        let options = vec![
+            MenuItem::with_info(
+                "Male",
+                "He/him pronouns with the default masculine voice profile.",
+            ),
+            MenuItem::with_info(
+                "Female",
+                "She/her pronouns with the default feminine voice profile.",
+            ),
+        ];
+        let selection = select_from_menu(
+            "Select Gender",
+            Some("Identity covers how NPCs address you and how save slots are labeled."),
+            &options,
+        );
+        println!("Gender: {}", selection.label);
+        match selection.index {
+            0 => Gender::Male,
+            1 => Gender::Female,
             _ => Gender::default(),
         }
     }
@@ -108,23 +122,23 @@ impl PersonalInfo {
         println!("--- Identity ---");
         println!("{}", IDENTITY_GUIDE);
 
-        if prompt_yes_no("Update first name? (1 Yes / 2 No)") {
+        if prompt_yes_no("Update first name?") {
             self.first_name = read_string("Enter new First Name: ");
         }
 
-        if prompt_yes_no("Update last name? (1 Yes / 2 No)") {
+        if prompt_yes_no("Update last name?") {
             self.last_name = read_string("Enter new Last Name: ");
         }
 
-        if prompt_yes_no("Update age? (1 Yes / 2 No)") {
+        if prompt_yes_no("Update age?") {
             self.age = read_int("Enter new Age: ");
         }
 
-        if prompt_yes_no("Update gender? (1 Yes / 2 No)") {
+        if prompt_yes_no("Update gender?") {
             self.gender = Gender::prompt_selection();
         }
 
-        if prompt_yes_no("Update nickname/call sign? (1 Yes / 2 No)") {
+        if prompt_yes_no("Update nickname/call sign?") {
             let nickname_input = read_string("Enter new Nickname/Call Sign (leave blank to clear): ");
             self.nickname = normalize_optional(nickname_input);
         }
@@ -155,8 +169,13 @@ impl fmt::Display for PersonalInfo {
 }
 
 fn prompt_yes_no(message: &str) -> bool {
-    println!("{}", message);
-    matches!(read_int("Selection: "), 1)
+    let options = vec![
+        MenuItem::with_info("Yes", "Apply the requested change."),
+        MenuItem::with_info("No", "Keep the current value."),
+    ];
+    let response = select_from_menu(message, None, &options);
+    println!("{}: {}", message, response.label);
+    response.index == 0
 }
 
 fn normalize_optional(input: String) -> Option<String> {
